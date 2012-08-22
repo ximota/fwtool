@@ -1,4 +1,4 @@
-# REV c
+# REV d
 # Date                  : 2009-10-29
 # Batman programmer     : David Marsolais davidm {at] frostbite.org
 # Robin programmer      : Patrick Forget
@@ -107,13 +107,11 @@ if (clientauth == 1 )
   {
   fwcmd = "fw tab -t connections -u"
   }
-#fwcmd = "cat foo"
 
 if ( ! vip  )
 {
  while (fwcmd | getline conn)
   {
-   #if ((!( conn ~ /\-|^[a-z]|^$/ )) && (!(conn ~ /\-\>/)))
    if (!( conn ~ /\-|^[a-z]|^$/ ))
     {
      split(conn,row,", |; ")
