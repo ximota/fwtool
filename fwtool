@@ -1,0 +1,164 @@
+# REV c
+# Date                  : 2009-10-29
+# Batman programmer     : David Marsolais davidm {at] frostbite.org
+# Robin programmer      : Patrick Forget
+
+function print_syntax()
+ {
+  printf("Usage: fwtool <table> [-t] [-k]\n")
+  printf("fwtool x [-t] [-k]\t\t\t\t# Show connections table\n")
+  printf("fwtool c [-t] [-k]\t\t\t\t# Show client_auth table\n")
+  printf("fwtool a\t\t\t\t\t# Show arp_table table\n")
+  exit(1)
+ }
+
+function alength(al)
+ {
+  x=0;
+  for ( i in al)
+   {
+    x++;
+   }
+   return x;
+ }
+
+function getproto(s)
+ {
+  p = strtonum("0x" s)
+  if ( p == 6 )
+   {
+    return "TCP"
+   }
+  else if ( p == 17 )
+   {
+    return "UDP"
+   }
+  else if ( p == 1 )
+   {
+    return "ICMP"
+   }
+ }
+
+function hex2ip(s)
+ {
+  return sprintf( "%d.%d.%d.%d", strtonum("0x" substr(s,1,2)), strtonum("0x" substr(s,3,2)), strtonum("0x" substr(s,5,2)), strtonum("0x" substr(s,7,2)))
+ }
+
+function ip2hex(s)
+ {
+  split(s,a,".")
+  return (sprintf( "%02x%02x%02x%02x",a[1],a[2],a[3],a[4]))
+ }
+
+function seconds2human(s)
+ {
+  hours = ( (s - (s%3600)) /3600)
+  s=(s%3600)
+  minutes=((s-(s%60))/60)
+  s=(s%60)
+  return (sprintf("%sh%02sm%02ss",hours,minutes,s))
+ }
+
+
+BEGIN {
+
+for (i = 1 ; i < ARGC ; i++)
+ {
+  if (ARGV[i] == "-k")
+   { 
+    viewkey = 1 
+   }
+  else if (ARGV[i] == "-t")
+   {
+    viewtiemout = 1
+   }
+  else if (ARGV[i] == "c")
+   {
+    clientauth = 1
+   }
+  else if (ARGV[i] == "a")
+   {
+    vip = 1
+   }
+  else if (ARGV[i] == "x")
+   {
+    connections = 1
+   } 
+  else
+   {
+    print_syntax()
+   }
+ }
+
+if ( i == 1 )
+{
+ print_syntax()
+}
+
+if (clientauth == 1 )
+ {
+  fwcmd = "fw tab -t client_auth -u"
+ }
+ else if ( vip == 1 )
+  {
+  fwcmd = "fw tab -t arp_table -u"
+  }
+ else
+  {
+  fwcmd = "fw tab -t connections -u"
+  }
+#fwcmd = "cat foo"
+
+if ( ! vip  )
+{
+ while (fwcmd | getline conn)
+  {
+   #if ((!( conn ~ /\-|^[a-z]|^$/ )) && (!(conn ~ /\-\>/)))
+   if (!( conn ~ /\-|^[a-z]|^$/ ))
+    {
+     split(conn,row,", |; ")
+     srcip=hex2ip(row[2])
+     srcport=sprintf("%d", strtonum("0x" row[3]))
+     dstip=hex2ip(row[4])
+     dstport=sprintf("%d", strtonum("0x" row[5]))
+     proto=getproto(row[6])
+     if ( row[9] > 08000000 )
+      {
+       rule="--BI--"
+      }
+     else
+      {
+       rule=sprintf("%d", strtonum("0x" row[9]))
+      }
+     printf("%-4s%15s:%-6s%15s:%-6s[%s]",proto,srcip,srcport,dstip,dstport,rule)
+     if ( viewtiemout)
+      {
+       lrow=alength(row)
+       both=row[lrow]
+       split(both,tt,"/")
+       printf(" [%s/%s] ",seconds2human(tt[1]),seconds2human(tt[2]))
+      }
+     if ( viewkey ) 
+      {
+       key=sprintf("0,%s,%s,%s,%s,%s",row[2],row[3],row[4],row[5],row[6])
+       gsub(/,0+/,",0",key)
+       printf("(%s)",key) 
+      }
+     printf("\n")
+    }
+  }
+ }
+else
+ {
+ while (fwcmd | getline conn)
+  {
+   if (!( conn ~ /\-|^[a-z]|^$/ ))
+    {
+     split(conn,row,"^<|, |; ")
+     srcip=hex2ip(row[2])
+     printf("%s",srcip)
+     printf("\n")
+   } 
+  }
+ }
+}
